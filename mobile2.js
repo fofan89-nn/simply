@@ -2,9 +2,19 @@
 const canvas = document.getElementById('gameCanvas');
 const context = canvas.getContext('2d');
 
-// Set canvas size to window dimensions
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// Make the canvas adaptive to the screen size
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Adjust platform position based on canvas height
+    platform.y = canvas.height - 100; // Platform is always 100px from the bottom
+    player.y = platform.y - player.height; // Reset player y-position
+}
+
+// Call resizeCanvas initially and on window resize
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
 // Create touch controls
 const controlsDiv = document.createElement('div');
@@ -38,6 +48,7 @@ document.head.innerHTML += `
             transform: translateX(-50%);
             display: flex;
             gap: 10px;
+            z-index: 10;
         }
         #controls button {
             padding: 15px 30px;
@@ -47,6 +58,8 @@ document.head.innerHTML += `
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            width: 80px; /* Fixed width for responsiveness */
+            height: 80px; /* Fixed height for responsiveness */
         }
     </style>
 `;
@@ -66,8 +79,8 @@ lifeImage.src = 'Live.png';
 // Define the platform
 let platform = {
     x: 0,
-    y: canvas.height - 100,
-    width: canvas.width,
+    y: 0, // Temporary value
+    width: 0, // Will be set dynamically
     height: 50,
     color: '#0c0'
 };
@@ -87,11 +100,9 @@ let player = {
     lives: 3,
 };
 
-player.y = platform.y - player.height; // Set y based on platform
-
 // Define the enemy
 let enemy = {
-    x: canvas.width * 0.6, // Adjusted to be within canvas
+    x: 0, // Temporary value
     y: 400,
     width: 50,
     height: 50,
@@ -136,6 +147,10 @@ function draw() {
             context.drawImage(enemy.sprite, -enemy.width / 2, -enemy.height / 2, enemy.width, enemy.height);
         }
         context.restore();
+
+        // Draw platform
+        context.fillStyle = platform.color;
+        context.fillRect(platform.x, platform.y, platform.width, platform.height);
     }
 }
 
