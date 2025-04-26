@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Mobile Platform Game</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             touch-action: none;
+            background-color: #000; /* Fallback if images don't load */
+        }
+        #gameCanvas {
+            display: block;
         }
         #controls {
             position: fixed;
@@ -23,6 +28,9 @@
             background-color: rgba(255, 255, 255, 0.5);
             border: 2px solid white;
             touch-action: manipulation;
+            font-size: 24px;
+            color: white;
+            user-select: none;
         }
     </style>
 </head>
@@ -37,6 +45,10 @@
     </div>
 
 <script>
+// Debugging helper
+console.log("Game script loading...");
+
+// Canvas setup
 const canvas = document.getElementById('gameCanvas');
 const context = canvas.getContext('2d');
 
@@ -44,55 +56,51 @@ const context = canvas.getContext('2d');
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    platform.y = canvas.height - 100;
-    platform.width = canvas.width;
+    console.log(`Canvas resized to ${canvas.width}x${canvas.height}`);
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Touch controls
-const leftBtn = document.getElementById('leftBtn');
-const rightBtn = document.getElementById('rightBtn');
-const jumpBtn = document.getElementById('jumpBtn');
-
-leftBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    player.dx = -5;
-});
-leftBtn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    player.dx = 0;
-});
-
-rightBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    player.dx = 5;
-});
-rightBtn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    player.dx = 0;
-});
-
-jumpBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (!player.jumping) {
-        player.dy = -player.jumpForce;
-        player.jumping = true;
-    }
-});
-
-// Rest of your original code with minor adjustments
-let backgroundImage = new Image();
-backgroundImage.src = 'Background.png';
-
+// Game objects
 let gameOver = false;
-let gameOverImage = new Image();
-gameOverImage.src = 'GameOver.png';
+let assetsLoaded = 0;
+const totalAssets = 4; // Update this if you add more assets
 
-let lifeImage = new Image();
-lifeImage.src = 'Live.png';
+// Image loading with error handling
+function loadImage(src, onLoad) {
+    const img = new Image();
+    img.onload = () => {
+        console.log(`Loaded image: ${src}`);
+        onLoad(img);
+        assetsLoaded++;
+        if (assetsLoaded === totalAssets) startGame();
+    };
+    img.onerror = () => {
+        console.error(`Failed to load image: ${src}`);
+        // Create a colored rectangle as fallback
+        const fallback = document.createElement('canvas');
+        fallback.width = 100;
+        fallback.height = 100;
+        const ctx = fallback.getContext('2d');
+        ctx.fillStyle = src.includes('Player') ? 'blue' : 
+                        src.includes('Enemy') ? 'red' :
+                        src.includes('Background') ? 'lightblue' : 'green';
+        ctx.fillRect(0, 0, 100, 100);
+        onLoad(fallback);
+        assetsLoaded++;
+        if (assetsLoaded === totalAssets) startGame();
+    };
+    img.src = src;
+    return img;
+}
 
-let player = {
+// Game assets
+const backgroundImage = loadImage('Background.png', (img) => backgroundImage.img = img);
+const gameOverImage = loadImage('GameOver.png', (img) => gameOverImage.img = img);
+const lifeImage = loadImage('Live.png', (img) => lifeImage.img = img);
+
+// Player setup
+const player = {
     x: 50,
     y: 400,
     width: 100,
@@ -102,11 +110,12 @@ let player = {
     gravity: 0.5,
     jumpForce: 10,
     jumping: false,
-    sprite: new Image(),
     lives: 3,
+    sprite: loadImage('Player.png', (img) => player.sprite = img)
 };
 
-let enemy = {
+// Enemy setup
+const enemy = {
     x: 300,
     y: 400,
     width: 50,
@@ -116,15 +125,13 @@ let enemy = {
     gravity: 0.5,
     jumpForce: 10,
     jumping: false,
-    sprite: new Image(),
     rotation: 0,
     dead: false,
+    sprite: loadImage('Enemy.png', (img) => enemy.sprite = img)
 };
 
-enemy.sprite.src = "Enemy.png";
-player.sprite.src = "Player.png";
-
-let platform = {
+// Platform setup
+const platform = {
     x: 0,
     y: canvas.height - 100,
     width: canvas.width,
@@ -132,58 +139,146 @@ let platform = {
     color: '#0c0'
 };
 
+// Touch controls setup
+function setupControls() {
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    const jumpBtn = document.getElementById('jumpBtn');
+
+    function handleButton(velocity) {
+        player.dx = velocity;
+    }
+
+    leftBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleButton(-5);
+    });
+    leftBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        if (player.dx < 0) handleButton(0);
+    });
+
+    rightBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleButton(5);
+    });
+    rightBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        if (player.dx > 0) handleButton(0);
+    });
+
+    jumpBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!player.jumping) {
+            player.dy = -player.jumpForce;
+            player.jumping = true;
+        }
+    });
+
+    console.log("Touch controls initialized");
+}
+
+// Drawing functions
 function draw() {
     context.clearRect(0, 0, canvas.width, canvas.height);
 
     if (gameOver) {
-        context.drawImage(gameOverImage, 0, 0, canvas.width, canvas.height);
+        context.fillStyle = 'black';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        if (gameOverImage.img) {
+            context.drawImage(gameOverImage.img, 0, 0, canvas.width, canvas.height);
+        } else {
+            context.fillStyle = 'white';
+            context.font = '48px Arial';
+            context.textAlign = 'center';
+            context.fillText('GAME OVER', canvas.width/2, canvas.height/2);
+        }
     } else {
-        context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
-        for (let i = 0; i < player.lives; i++) {
-            context.drawImage(lifeImage, 10 + i * 30, 10, 20, 20);
+        // Draw background
+        if (backgroundImage.img) {
+            context.drawImage(backgroundImage.img, 0, 0, canvas.width, canvas.height);
+        } else {
+            context.fillStyle = 'lightblue';
+            context.fillRect(0, 0, canvas.width, canvas.height);
         }
-        context.drawImage(player.sprite, player.x, player.y, player.width, player.height);
 
-        context.save();
-        context.translate(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
-        context.rotate(enemy.rotation);
-        if (!enemy.dead) {
-            context.drawImage(enemy.sprite, -enemy.width/2, -enemy.height/2, enemy.width, enemy.height);
+        // Draw lives
+        for (let i = 0; i < player.lives; i++) {
+            if (lifeImage.img) {
+                context.drawImage(lifeImage.img, 10 + i * 30, 10, 20, 20);
+            } else {
+                context.fillStyle = 'red';
+                context.fillRect(10 + i * 30, 10, 20, 20);
+            }
         }
-        context.restore();
+
+        // Draw player
+        if (player.sprite) {
+            context.drawImage(player.sprite, player.x, player.y, player.width, player.height);
+        } else {
+            context.fillStyle = 'blue';
+            context.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        // Draw enemy if not dead
+        if (!enemy.dead) {
+            context.save();
+            context.translate(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
+            context.rotate(enemy.rotation);
+            if (enemy.sprite) {
+                context.drawImage(enemy.sprite, -enemy.width/2, -enemy.height/2, enemy.width, enemy.height);
+            } else {
+                context.fillStyle = 'red';
+                context.fillRect(-enemy.width/2, -enemy.height/2, enemy.width, enemy.height);
+            }
+            context.restore();
+        }
+
+        // Draw platform
+        context.fillStyle = platform.color;
+        context.fillRect(platform.x, platform.y, platform.width, platform.height);
     }
 }
 
+// Game logic
 function update() {
     if (gameOver) return;
 
+    // Player movement
     player.x += player.dx;
     player.y += player.dy;
 
-    // Collision detection and game logic
-    if (!enemy.dead && checkCollision(player, enemy)) {
-        player.lives--;
-        player.x = 500;
-        player.y = 100;
-        if (player.lives < 0) gameOver = true;
-    }
-
+    // Player-platform collision
     if (player.y + player.height > platform.y) {
         player.y = platform.y - player.height;
         player.jumping = false;
+        player.dy = 0;
     } else {
         player.dy += player.gravity;
     }
 
-    // Keep player in bounds
+    // Player boundaries
     player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
     player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
 
     // Enemy movement
-    enemy.x += enemy.dx;
-    if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
-        enemy.dx *= -1;
-        enemy.rotation += Math.PI;
+    if (!enemy.dead) {
+        enemy.x += enemy.dx;
+        if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
+            enemy.dx *= -1;
+            enemy.rotation += Math.PI;
+        }
+
+        // Player-enemy collision
+        if (checkCollision(player, enemy)) {
+            player.lives--;
+            player.x = 50;
+            player.y = 100;
+            if (player.lives < 0) {
+                gameOver = true;
+                console.log("Game Over!");
+            }
+        }
     }
 
     draw();
@@ -197,8 +292,13 @@ function checkCollision(rect1, rect2) {
            rect1.y + rect1.height > rect2.y;
 }
 
-// Start the game
-update();
+function startGame() {
+    console.log("All assets loaded, starting game...");
+    setupControls();
+    platform.y = canvas.height - 100;
+    platform.width = canvas.width;
+    update();
+}
 </script>
 </body>
 </html>
