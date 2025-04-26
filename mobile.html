@@ -99,6 +99,7 @@ function resizeCanvas() {
     
     if (enemy) {
         enemy.y = platform.y - enemy.height;
+        enemy.x = canvas.width - enemy.width - 20; // Position enemy on the right with 20px margin
     }
 }
 
@@ -130,9 +131,9 @@ function initGame() {
         lives: 3
     };
 
-    // Enemy (sits on same platform)
+    // Enemy (positioned on the right side of the screen)
     enemy = {
-        x: canvas.width,
+        x: canvas.width - 80, // Start on the right side
         y: platform.y - 60,
         width: 60,
         height: 60,
@@ -274,7 +275,7 @@ function gameLoop() {
             enemy.y = platform.y - enemy.height;
         }
 
-        // Enemy boundaries
+        // Enemy boundaries - now only moves left and right within screen bounds
         if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
             enemy.dx *= -1;
             enemy.rotation += Math.PI;
